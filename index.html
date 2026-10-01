@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>WebGL Physics Test Sandbox</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1017}canvas{display:block;width:100%;height:100%}
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1017;overscroll-behavior:none;touch-action:none}canvas{display:block;width:100%;height:100%;touch-action:none}
 #ui{position:fixed;inset:0;pointer-events:none;font-family:system-ui,sans-serif;color:#fff}#help{position:absolute;left:50%;top:12px;transform:translateX(-50%);padding:7px 12px;border-radius:12px;background:rgba(5,10,16,.55);font-size:12px;backdrop-filter:blur(6px);white-space:nowrap}.button{pointer-events:auto}.crosshair{position:absolute}.joy{position:absolute}.lookZone{position:absolute}.btn{}
-#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;text-shadow:0 1px 4px #000;opacity:.8}#joy{pointer-events:auto;position:absolute;left:24px;bottom:28px;width:128px;height:128px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 30px rgba(255,255,255,.04)}#joyKnob{position:absolute;left:39px;top:39px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.35);box-shadow:0 3px 14px rgba(0,0,0,.25)}#lookZone{pointer-events:auto;position:absolute;right:0;top:0;width:58%;height:100%}#jump,#grab,#throw,#reset{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.28);background:rgba(10,18,28,.65);color:#fff;border-radius:14px;padding:12px 14px;font-weight:700;letter-spacing:.06em;backdrop-filter:blur(8px);touch-action:none}#jump{right:24px;bottom:170px}#grab{right:120px;bottom:105px}#throw{right:24px;bottom:105px}#reset{right:24px;bottom:40px}#status{position:fixed;left:12px;bottom:10px;color:#dce9f7;font:12px system-ui,sans-serif;pointer-events:none;text-shadow:0 1px 3px #000;z-index:5}@media(max-width:700px){#help{font-size:10px;max-width:92%;overflow:hidden}.lookZone{width:52%}}</style>
+#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;text-shadow:0 1px 4px #000;opacity:.8}#joy{pointer-events:auto;position:absolute;left:24px;bottom:28px;width:128px;height:128px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 30px rgba(255,255,255,.04)}#joyKnob{position:absolute;left:39px;top:39px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.35);box-shadow:0 3px 14px rgba(0,0,0,.25)}#lookZone{pointer-events:auto;touch-action:none;position:absolute;right:0;top:0;width:58%;height:100%}#jump,#grab,#throw,#reset{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.28);background:rgba(10,18,28,.65);color:#fff;border-radius:14px;padding:12px 14px;font-weight:700;letter-spacing:.06em;backdrop-filter:blur(8px);touch-action:none}#jump{right:24px;bottom:170px}#grab{right:120px;bottom:105px}#throw{right:24px;bottom:105px}#reset{right:24px;bottom:40px}#status{position:fixed;left:12px;bottom:10px;color:#dce9f7;font:12px system-ui,sans-serif;pointer-events:none;text-shadow:0 1px 3px #000;z-index:5}@media(max-width:700px){#help{font-size:10px;max-width:92%;overflow:hidden}.lookZone{width:52%}}</style>
 </head>
 <body><canvas id="gl"></canvas>
 <div id="ui">
@@ -57,6 +57,18 @@ void main(){vec3 n=normalize(vN);if(!gl_FrontFacing)n=-n;vec3 l=normalize(uLight
 function shader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
 const prog=gl.createProgram();gl.attachShader(prog,shader(gl.VERTEX_SHADER,vs));gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
 const uProj=gl.getUniformLocation(prog,'uProj'),uView=gl.getUniformLocation(prog,'uView'),uModel=gl.getUniformLocation(prog,'uModel'),uNormal=gl.getUniformLocation(prog,'uNormal'),uColor=gl.getUniformLocation(prog,'uColor'),uLight=gl.getUniformLocation(prog,'uLight'),uCam=gl.getUniformLocation(prog,'uCam');
+
+// ---------- Unlit procedural skybox ----------
+const skyVS=`#version 300 es
+precision highp float;layout(location=0) in vec3 aPos;
+uniform mat4 uProj,uView,uModel;uniform vec3 uCam;out vec3 vDir;
+void main(){vec4 w=uModel*vec4(aPos,1.0);vDir=w.xyz-uCam;gl_Position=uProj*uView*w;}`;
+const skyFS=`#version 300 es
+precision highp float;in vec3 vDir;out vec4 outColor;
+void main(){vec3 d=normalize(vDir);float h=clamp(d.y*.5+.5,0.0,1.0);vec3 horizon=vec3(.72,.86,.98);vec3 zenith=vec3(.055,.25,.52);vec3 sky=mix(horizon,zenith,pow(h,.72));float sun=max(dot(d,normalize(vec3(-.45,.72,-.35))),0.0);sky+=vec3(1.0,.72,.38)*pow(sun,160.0)*.9;sky+=vec3(1.0,.9,.75)*pow(sun,10.0)*.035;outColor=vec4(sky,1.0);}`;
+const skyProg=gl.createProgram();gl.attachShader(skyProg,shader(gl.VERTEX_SHADER,skyVS));gl.attachShader(skyProg,shader(gl.FRAGMENT_SHADER,skyFS));gl.linkProgram(skyProg);if(!gl.getProgramParameter(skyProg,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(skyProg));
+const skyProj=gl.getUniformLocation(skyProg,'uProj'),skyView=gl.getUniformLocation(skyProg,'uView'),skyModel=gl.getUniformLocation(skyProg,'uModel'),skyCam=gl.getUniformLocation(skyProg,'uCam');
+
 if(!uProj||!uView||!uModel||!uNormal||!uColor||!uLight||!uCam)throw new Error('Renderer shader uniform lookup failed');
 
 // ---------- Reusable geometry API ----------
@@ -77,55 +89,222 @@ function sphereMesh(seg=24,rings=12){const v=[],idx=[];for(let y=0;y<=rings;y++)
 function cylinderMesh(seg=24){const v=[],idx=[];for(let y=0;y<2;y++){const py=y*2-1;for(let i=0;i<=seg;i++){const t=i/seg*2*Math.PI,c=Math.cos(t),s=Math.sin(t);v.push(c,py,s,c,0,s)}}for(let i=0;i<seg;i++){const a=i,b=i+1,c=seg+1+i,d=c+1;idx.push(a,b,c,b,d,c)}return makeMesh({vertices:v,indices:idx});}
 const meshes={box:boxMesh(),sphere:sphereMesh(),cylinder:cylinderMesh()};
 
-// ---------- Scene / modelling objects ----------
+// ---------- Scene / procedural world ----------
 class Obj{constructor(mesh,pos,scale,color){this.mesh=mesh;this.p=pos;this.s=scale;this.r=new V();this.color=color;this.visible=true;this.parent=null;this.children=[];this.dynamic=false;this.v=new V();this.held=false;this.mass=1}}
 const objects=[];
 function add(mesh,p,s,c){const o=new Obj(mesh,new V(...p),new V(...s),c);objects.push(o);return o}
 function part(mesh,p,s,c,parent=null){const o=add(mesh,p,s,c);o.parent=parent;if(parent)parent.children.push(o);return o}
 
-// Demonstration scene: deliberately uses only the same stable mesh API that future detailed models will use.
-const floor=add(meshes.box,[0,-.25,0],[10,.25,10],[.20,.25,.30]);
-const wallN=add(meshes.box,[0,1,-10],[10,1,.25],[.14,.18,.23]);const wallS=add(meshes.box,[0,1,10],[10,1,.25],[.14,.18,.23]);const wallW=add(meshes.box,[-10,1,0],[.25,1,10],[.14,.18,.23]);const wallE=add(meshes.box,[10,1,0],[.25,1,10],[.14,.18,.23]);
-const platform=add(meshes.box,[0,.25,4],[3,.25,3],[.32,.38,.46]);
-const cube1=add(meshes.box,[-2,1,2],[.65,.65,.65],[.18,.55,.95]);cube1.dynamic=true;cube1.v.set(0,0,0);cube1.mass=1;
-const cube2=add(meshes.box,[2,1,3],[.8,.8,.8],[.92,.38,.18]);cube2.dynamic=true;
-const pillar=add(meshes.cylinder,[-3,1,-1],[.7,1,.7],[.35,.72,.45]);
+// ---------- Procedural terrain ----------
+function terrainHeight(x,z){
+  const a=Math.sin(x*.115)*.72+Math.cos(z*.135)*.58;
+  const b=Math.sin(x*.31+z*.17)*.28+Math.cos(x*.19-z*.27)*.22;
+  const c=Math.sin((x+z)*.57)*.075;
+  const radial=Math.max(0,Math.hypot(x,z)-13)*.035;
+  return Math.max(-.05,a+b+c-radial);
+}
+function makeTerrainMesh(size=120,steps=160){
+  const v=[],idx=[];const half=size*.5;
+  const h=(x,z)=>terrainHeight(x,z);
+  for(let j=0;j<=steps;j++)for(let i=0;i<=steps;i++){
+    const x=-half+size*i/steps,z=-half+size*j/steps,y=h(x,z),e=.09;
+    const dx=new V(2*e,h(x+e,z)-h(x-e,z),0).norm();
+    const dz=new V(0,h(x,z+e)-h(x,z-e),2*e).norm();
+    const n=dz.cross(dx).norm();v.push(x,y,z,n.x,n.y,n.z);
+  }
+  for(let j=0;j<steps;j++)for(let i=0;i<steps;i++){const a=j*(steps+1)+i,b=a+1,c=a+steps+1,d=c+1;idx.push(a,b,c,b,d,c)}
+  return makeMesh({vertices:v,indices:idx});
+}
+const terrainMesh=makeTerrainMesh();
+add(terrainMesh,[0,0,0],[1,1,1],[.19,.34,.12]);
 
-// Simple articulated demonstration model. Parent-relative offsets make complex models easy to assemble.
-const root=part(meshes.sphere,[0,1.7,-1],[.48,.62,.42],[.82,.72,.54]);
-const head=part(meshes.sphere,[0,2.45,-1],[.36,.36,.36],[.9,.72,.55],root);
-const torso=part(meshes.box,[0,1.15,-1],[.55,.75,.3],[.22,.38,.58],root);
-const armL=part(meshes.cylinder,[-.78,1.1,-1],[.16,.65,.16],[.18,.55,.95],root);armL.r.z=-.25;
-const armR=part(meshes.cylinder,[.78,1.1,-1],[.16,.65,.16],[.18,.55,.95],root);armR.r.z=.25;
+// A subtle second terrain layer gives the renderer more geometry and colour variation.
+function makeGroundPatchMesh(){
+  const v=[],idx=[];const N=60,S=120;
+  for(let j=0;j<=N;j++)for(let i=0;i<=N;i++){
+    const x=-S/2+S*i/N,z=-S/2+S*j/N,y=terrainHeight(x,z)+.018+Math.sin(x*1.7+z*.8)*.008;
+    v.push(x,y,z,0,1,0);
+  }
+  for(let j=0;j<N;j++)for(let i=0;i<N;i++){const a=j*(N+1)+i,b=a+1,c=a+N+1,d=c+1;idx.push(a,b,c,b,d,c)}
+  return makeMesh({vertices:v,indices:idx});
+}
+add(makeGroundPatchMesh(),[0,0,0],[1,1,1],[.23,.40,.14]);
+
+// ---------- Procedural tree and foliage meshes ----------
+function makeTreeCylinderData(parts,radial=16){
+ const v=[],idx=[];
+ function seg(a,b,r0,r1){const d=b.sub(a).norm(),h=Math.abs(d.y)<.92?new V(0,1,0):new V(1,0,0),u=d.cross(h).norm(),w=d.cross(u).norm(),base=v.length/6;
+  for(let e=0;e<2;e++){const p=e?b:a,r=e?r1:r0;for(let j=0;j<radial;j++){const t=j/radial*Math.PI*2,c=Math.cos(t),sn=Math.sin(t),q=p.add(u.mul(c*r)).add(w.mul(sn*r)),n=u.mul(c).add(w.mul(sn));v.push(q.x,q.y,q.z,n.x,n.y,n.z)}}
+  for(let j=0;j<radial;j++){const n=(j+1)%radial,a0=base+j,b0=base+n,c0=base+radial+j,d0=base+radial+n;idx.push(a0,b0,c0,b0,d0,c0)}}
+ for(const x of parts)seg(x.a,x.b,x.r0,x.r1);return {vertices:v,indices:idx};
+}
+function makeLeafMesh(leaves){
+ const v=[],idx=[];
+ for(const q of leaves){const p=q.p,d=q.d.norm(),up=Math.abs(d.y)<.92?new V(0,1,0):new V(1,0,0);let side=d.cross(up).norm(),bend=side.cross(d).norm();const l=q.l,w=q.w,base=v.length/6;
+  const a=p.add(d.mul(-l*.55)),m=p.add(d.mul(-l*.02)),tip=p.add(d.mul(l*.55)),ridge=m.add(bend.mul(w*.20));
+  const push=(x,n)=>v.push(x.x,x.y,x.z,n.x,n.y,n.z),n=bend;
+  push(a.add(side.mul(w*.18)),n);push(m.add(side.mul(w)),n);push(tip,n);push(m.sub(side.mul(w)),n);push(a.sub(side.mul(w*.18)),n);push(ridge,n);
+  idx.push(base,base+1,base+5,base+1,base+2,base+5,base+2,base+3,base+5,base+3,base+4,base+5,base+2,base+1,base+5,base+2,base+5,base+3,base+5,base+1,base,base+5,base+4,base+3);
+ }
+ return makeMesh({vertices:v,indices:idx});
+}
+function buildDetailedTree(){
+ const bark=[],dark=[],mid=[],light=[];const branch=(a,b,r0,r1)=>bark.push({a:new V(...a),b:new V(...b),r0,r1});
+ branch([0,0,0],[.02,2.2,0],.62,.46);branch([.02,1.8,0],[-.2,3.55,.08],.46,.30);branch([-.2,3.15,.08],[-.02,4.85,.03],.31,.21);branch([-.02,4.55,.03],[.15,6.0,.04],.22,.12);
+ branch([-.05,2.35,.02],[-2.05,3.45,.12],.31,.14);branch([0,2.45,.02],[2.05,3.55,-.04],.30,.14);branch([-.12,3.35,.07],[-1.75,4.45,-.15],.23,.10);branch([-.03,3.5,.04],[1.75,4.65,.14],.22,.10);branch([-.08,4.05,.04],[-1.2,5.15,.18],.17,.07);branch([-.02,4.2,.03],[1.2,5.3,-.15],.17,.07);branch([-.05,4.75,.04],[-.72,5.8,-.05],.13,.05);branch([.03,4.9,.04],[.78,6.0,.08],.13,.05);
+ const tw=[[-2.75,3.55,.15],[-2.4,3.15,.7],[-2.25,4,-.45],[-1.95,4.7,.45],[-1.5,4.15,.75],[2.7,3.65,-.15],[2.45,3.15,-.65],[2.2,4.05,.45],[1.9,4.75,-.45],[1.5,4.35,-.75],[-1.35,5.3,-.5],[-.95,5.75,.55],[-.45,6,-.55],[0,6.35,.45],[.55,5.9,.65],[1.1,5.5,-.55],[1.5,5.2,.55],[-.25,5.35,.7],[.25,5.5,-.7]];
+ for(const e of tw){const x=new V(...e),base=new V(x.x*.72,Math.max(2.75,x.y-1),x.z*.72);branch([base.x,base.y,base.z],[x.x,x.y,x.z],.07,.016)}
+ const anchors=[[-2.75,3.55,.15],[-2.4,3.15,.7],[-2.25,4,-.45],[-1.95,4.7,.45],[-1.5,4.15,.75],[2.7,3.65,-.15],[2.45,3.15,-.65],[2.2,4.05,.45],[1.9,4.75,-.45],[1.5,4.35,-.75],[-1.35,5.3,-.5],[-.95,5.75,.55],[-.45,6,-.55],[0,6.35,.45],[.55,5.9,.65],[1.1,5.5,-.55],[1.5,5.2,.55],[-.25,5.35,.7],[.25,5.5,-.7],[-1.1,3.55,-.8],[.95,3.7,.75],[-.9,4.4,.75],[.8,4.55,-.8],[-2.05,4.25,-.75],[2.1,4.35,.7],[-.7,5.05,-.8],[.7,5.2,.75],[-.25,5.7,0]];
+ let seed=9137;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+ for(const a0 of anchors){const a=new V(...a0),count=70+Math.floor(rnd()*45);for(let j=0;j<count;j++){const t=rnd()*Math.PI*2,rr=Math.sqrt(rnd()),p=new V(a.x+Math.cos(t)*(.55+.55*rnd())*rr,a.y+(rnd()-.5)*1.35,a.z+Math.sin(t)*(.52+.5*rnd())*rr);const d=a.sub(p).mul(.35).add(new V(Math.cos(t+1),(.2+rnd()*.65)*(rnd()<.5?-1:1),Math.sin(t+1))).norm(),leaf={p,d,l:.17+rnd()*.14,w:.045+rnd()*.045};const tone=rnd();(tone<.18?dark:tone<.86?mid:light).push(leaf)}}
+ return {bark:makeMesh(makeTreeCylinderData(bark,16)),dark:makeLeafMesh(dark),mid:makeLeafMesh(mid),light:makeLeafMesh(light)};
+}
+const tree=buildDetailedTree();
+function placeTree(x,z,s){const y=terrainHeight(x,z);const root=add(tree.bark,[x,y,z],[s,s,s],[.27,.13,.055]);add(tree.dark,[x,y,z],[s,s,s],[.045,.23,.065]);add(tree.mid,[x,y,z],[s,s,s],[.075,.34,.095]);add(tree.light,[x,y,z],[s,s,s],[.14,.47,.16]);const trunk=add(meshes.box,[x,y+1.25*s,z],[.62*s,1.25*s,.62*s],[.27,.13,.055]);trunk.visible=false;trunk.dynamic=false;trunk.isTrunkCollider=true;trunk.trunkRadius=.62*s;trunk.trunkHalfHeight=1.25*s;return root}
+// A close hero tree plus a natural forest ring. The repeated mesh instances stress transforms/draw submission without duplicating geometry.
+placeTree(0,5,1.0);
+const treeSpots=[[-7,-1,.72],[-5,6,.82],[5,5,.78],[7,-3,.95],[-8,8,.62],[8,8,.68],[-11,2,.76],[11,1,.82],[-10,-7,.62],[-4,-9,.70],[5,-8,.74],[11,-7,.58],[-13,7,.55],[13,7,.60],[-20,-8,.72],[19,-2,.8],[-24,10,.62],[25,7,.74],[-30,-4,.68],[31,-12,.58],[-35,15,.65],[36,4,.72],[-40,-18,.62],[42,-9,.7],[-15,-25,.76],[5,-30,.66],[23,-27,.72],[39,-27,.58],[-45,26,.55],[45,22,.62],[-50,0,.7],[50,8,.6]];
+for(const [x,z,s] of treeSpots)placeTree(x,z,s);
+
+// ---------- Procedural bushes ----------
+function makeBushMesh(){const leaves=[];let seed=4401;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};for(let i=0;i<90;i++){const t=rnd()*Math.PI*2,rr=Math.sqrt(rnd())*.85,p=new V(Math.cos(t)*rr,(rnd()-.15)*.9,Math.sin(t)*rr);leaves.push({p,d:new V(p.x*.7,.35+rnd()*.8,p.z*.7).norm(),l:.24+rnd()*.2,w:.07+rnd()*.07})}return makeLeafMesh(leaves)}
+const bushMesh=makeBushMesh();
+function placeBush(x,z,s){const y=terrainHeight(x,z);add(bushMesh,[x,y+.05,z],[s,s,s],[.10,.31,.09]);add(bushMesh,[x+s*.35,y+.04,z-s*.22],[s*.7,s*.75,s*.7],[.13,.38,.11])}
+for(const [x,z,s] of [[-3,2,.9],[3,1,.8],[-6,3,.65],[6,0,.72],[-8,-4,.9],[8,-5,.82],[-2,-7,.72],[3,-10,.64],[-10,6,.62],[10,5,.7],[12,-2,.55],[-18,2,.7],[18,4,.65],[-22,-8,.82],[22,-10,.72],[-28,0,.62],[28,2,.7],[-34,9,.65],[34,11,.6],[-40,-6,.72],[40,-2,.66],[-12,-20,.75],[12,-22,.68],[30,-24,.6]])placeBush(x,z,s);
+
+// A few procedural rocks give the terrain additional silhouettes for renderer testing.
+const rockMesh=sphereMesh(12,7);
+for(const [i,[x,z,s]] of [[-3,-2,.55],[4,-3,.72],[-7,-6,.48],[7,2,.42],[2,-5,.35],[18,8,.8],[-18,11,.65],[25,-12,.9],[-27,4,.7]].entries()){const y=terrainHeight(x,z);const rock=add(rockMesh,[x,y+s*.35,z],[s,s*.7,s],[.25,.27,.22]);rock.dynamic=true;rock.mass=1;rock.netId='rock-'+i}
+
+// Stable invisible physics floor: the terrain is visual test geometry, while the original
+// controller remains predictable and does not unexpectedly launch the player on a steep patch.
+
+
+
+// ---------- Multiplayer client ----------
+// The WebGL renderer, procedural world, local physics and controls stay intact.
+// This layer synchronizes players and rock actions with the separate Render server.
+const MULTIPLAYER_URL='wss://omnibackend-sgb9.onrender.com/ws';
+let socket=null,networkId=null,networkConnected=false,networkRetry=0,lastNetworkSend=0;
+const remotePlayers=new Map(),remoteMeshes=new Map();
+function num(v,d=0){return Number.isFinite(Number(v))?Number(v):d}
+function xyz(v){if(!v)return null;return{x:num(v.x),y:num(v.y),z:num(v.z)}}
+function yawOf(v){return num(v?.yaw??v?.rotation?.yaw??v?.rotation?.y,0)}
+function applyRemotePlayer(p){
+  const id=String(p.id??p.playerId??'');if(!id||id===String(networkId))return;
+  const pos=xyz(p.position??p);if(!pos)return;
+  let r=remotePlayers.get(id);
+  if(!r){r={x:pos.x,y:pos.y,z:pos.z,yaw:yawOf(p),tx:pos.x,ty:pos.y,tz:pos.z,tyaw:yawOf(p)};remotePlayers.set(id,r);const body=add(meshes.cylinder,new V(),new V(.38,.9,.38),[.18,.48,.82]);remoteMeshes.set(id,body)}
+  r.tx=pos.x;r.ty=pos.y;r.tz=pos.z;r.tyaw=yawOf(p);
+}
+function removeRemotePlayer(id){id=String(id);remotePlayers.delete(id);const body=remoteMeshes.get(id);if(body){const n=objects.indexOf(body);if(n>=0)objects.splice(n,1);remoteMeshes.delete(id)}}
+function applyRock(r){
+  const id=String(r.id??r.rockId??r.netId??'');if(!id)return;
+  const o=objects.find(x=>x.netId===id);if(!o)return;
+  const pos=xyz(r.position),vel=xyz(r.velocity);
+  if(pos&&!o.held){o.p.set(pos.x,pos.y,pos.z)}
+  if(vel&&!o.held){o.v.set(vel.x,vel.y,vel.z)}
+  if(typeof r.held==='boolean'&&r.held!==o.held){o.held=r.held}
+}
+function processNetworkMessage(msg){
+  if(!msg||typeof msg!=='object')return;
+  if(msg.type==='welcome'){networkId=msg.id;return}
+  if(msg.type==='playerJoined'||msg.type==='player')applyRemotePlayer(msg.player??msg);
+  if(msg.type==='playerLeft')removeRemotePlayer(msg.id);
+  if(msg.type==='players'){
+    const seen=new Set();for(const pl of msg.players||[]){applyRemotePlayer(pl);seen.add(String(pl.id))}
+    for(const id of [...remotePlayers.keys()])if(!seen.has(id))removeRemotePlayer(id);
+  }
+  if(msg.type==='playerUpdate'&&msg.player)applyRemotePlayer(msg.player);
+  if(msg.type==='rockState')applyRock(msg);
+  if(msg.type==='rockAction'&&msg.action)applyRock(msg.action);
+}
+function sendNetwork(obj){if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(obj))}
+function connectMultiplayer(){
+  try{socket=new WebSocket(MULTIPLAYER_URL)}catch(e){scheduleReconnect();return}
+  socket.addEventListener('open',()=>{
+    networkConnected=true;networkRetry=0;document.getElementById('status').textContent='Multiplayer connected';
+    sendNetwork({type:'join',name:'Player',protocol:1});
+  });
+  socket.addEventListener('message',e=>{try{processNetworkMessage(JSON.parse(e.data))}catch(err){console.warn('Network message error',err)}});
+  socket.addEventListener('close',()=>{networkConnected=false;document.getElementById('status').textContent='Multiplayer reconnecting…';scheduleReconnect()});
+  socket.addEventListener('error',()=>{networkConnected=false});
+}
+function scheduleReconnect(){const delay=Math.min(10000,1000*Math.pow(2,networkRetry++));setTimeout(connectMultiplayer,delay)}
+function networkTick(now){
+  if(!networkConnected||now-lastNetworkSend<50)return;
+  lastNetworkSend=now;
+  sendNetwork({type:'input',input:{forward:input.moveY,side:input.moveX,jump:input.jump},position:{x:camPos.x,y:camPos.y,z:camPos.z},rotation:{yaw,pitch}});
+}
+connectMultiplayer();
 
 // ---------- Camera + controls ----------
-const camPos=new V(0,3.2,-8),proj=mat4(),viewMat=mat4(),modelMat=mat4(),normalMat=new Float32Array(9);
-let yaw=0,pitch=-.10;
+// ---------- Camera + controls ----------
+const camPos=new V(0,terrainHeight(0,-8)+1.35,-8),proj=mat4(),viewMat=mat4(),modelMat=mat4(),normalMat=new Float32Array(9);
+let yaw=0,pitch=-.10,camVelY=0;
 const input={keys:Object.create(null),moveX:0,moveY:0,lookX:0,lookY:0,jump:false};
 let grounded=false,held=null,grabDistance=4.2;
 function forward(){const cp=Math.cos(pitch);return new V(Math.sin(yaw)*cp,Math.sin(pitch),Math.cos(yaw)*cp)}
 function flatForward(){return new V(Math.sin(yaw),0,Math.cos(yaw))}
 function right(){return new V(Math.cos(yaw),0,-Math.sin(yaw))}
-function resetScene(){cube1.p.set(-2,1,2);cube1.v.set(0,0,0);cube2.p.set(2,1,3);cube2.v.set(0,0,0);camPos.set(0,3.2,-8);yaw=0;pitch=-.10;held=null;input.jump=false}
-function rayGrab(){const f=forward(),origin=camPos;let best=null,bestD=grabDistance;for(const o of objects){if(!o.dynamic||o===held)continue;const q=o.p.sub(origin);const t=q.dot(f);if(t<.25||t>grabDistance)continue;const closest=origin.add(f.mul(t));const dist=o.p.sub(closest).len();const radius=Math.max(o.s.x,o.s.y,o.s.z)*1.35;if(dist<=radius&&t<bestD){best=o;bestD=t}}if(best){held=best;held.held=true;held.v.set(0,0,0);return true}return false}
-function dropHeld(throwing=false){if(!held)return;const f=forward();if(throwing)held.v= f.mul(10);held.held=false;held=null}
+function resetScene(){for(const o of objects)if(o.dynamic){o.held=false;o.v.set(0,0,0);o.p.y=terrainHeight(o.p.x,o.p.z)+o.s.y}camPos.set(0,terrainHeight(0,-8)+1.35,-8);camVelY=0;yaw=0;pitch=-.10;grounded=false;held=null;input.jump=false}
+function rayGrab(){const f=forward(),origin=camPos;let best=null,bestD=grabDistance;for(const o of objects){if(!o.dynamic||o===held)continue;const q=o.p.sub(origin);const t=q.dot(f);if(t<.25||t>grabDistance)continue;const closest=origin.add(f.mul(t));const dist=o.p.sub(closest).len();const radius=Math.max(o.s.x,o.s.y,o.s.z)*1.35;if(dist<=radius&&t<bestD){best=o;bestD=t}}if(best){held=best;held.held=true;held.v.set(0,0,0);sendNetwork({type:'grab',rockId:held.netId});return true}return false}
+function dropHeld(throwing=false){if(!held)return;const f=forward();if(throwing){held.v=f.mul(10);sendNetwork({type:'throw',rockId:held.netId,velocity:{x:held.v.x,y:held.v.y,z:held.v.z},position:{x:held.p.x,y:held.p.y,z:held.p.z}})}else sendNetwork({type:'drop',rockId:held.netId});held.held=false;held=null}
 function toggleGrab(){if(held)dropHeld(false);else rayGrab()}
 // ---------- Physics ----------
 const GRAVITY=-18,FLOOR_FRICTION=.78,AIR_DRAG=.999;
 function overlapAxis(a,b,axis){return (a.s[axis]+b.s[axis])-Math.abs(a.p[axis]-b.p[axis])}
-function resolveDynamicStatic(a,b){const ox=overlapAxis(a,b,'x'),oy=overlapAxis(a,b,'y'),oz=overlapAxis(a,b,'z');if(ox<=0||oy<=0||oz<=0)return false;let axis='x',pen=ox;if(oy<pen){axis='y';pen=oy}if(oz<pen){axis='z';pen=oz}const sign=a.p[axis]>=b.p[axis]?1:-1;a.p[axis]+=sign*pen;if(axis==='y'){if(a.v.y*sign<0)a.v.y=-a.v.y*.42;a.v.x*=FLOOR_FRICTION;a.v.z*=FLOOR_FRICTION}else a.v[axis]*=-.35;return true}
+function resolveDynamicStatic(a,b){if(b.isTrunkCollider)return resolveRockTreeCollision(a,b);const ox=overlapAxis(a,b,'x'),oy=overlapAxis(a,b,'y'),oz=overlapAxis(a,b,'z');if(ox<=0||oy<=0||oz<=0)return false;let axis='x',pen=ox;if(oy<pen){axis='y';pen=oy}if(oz<pen){axis='z';pen=oz}const sign=a.p[axis]>=b.p[axis]?1:-1;a.p[axis]+=sign*pen;if(axis==='y'){if(a.v.y*sign<0)a.v.y=-a.v.y*.42;a.v.x*=FLOOR_FRICTION;a.v.z*=FLOOR_FRICTION}else a.v[axis]*=-.35;return true}
+function resolveRockTreeCollision(a,b){
+ const rx=Math.max(a.s.x,a.s.z), ry=a.s.y;
+ const dx=a.p.x-b.p.x, dz=a.p.z-b.p.z;
+ const dist=Math.hypot(dx,dz), minDist=rx+b.trunkRadius;
+ const treeBottom=b.p.y-b.trunkHalfHeight, treeTop=b.p.y+b.trunkHalfHeight;
+ const rockBottom=a.p.y-ry, rockTop=a.p.y+ry;
+ if(dist>=minDist||rockTop<=treeBottom||rockBottom>=treeTop)return false;
+ if(rockBottom<treeTop && a.v.y<0 && a.p.y>treeTop){
+   a.p.y=treeTop+ry;
+   a.v.y=0;
+   a.v.x*=FLOOR_FRICTION;
+   a.v.z*=FLOOR_FRICTION;
+   return true;
+ }
+ let nx=dx,nz=dz;
+ if(dist<0.0001){nx=1;nz=0}else{nx/=dist;nz/=dist}
+ const penetration=minDist-dist;
+ a.p.x+=nx*penetration;
+ a.p.z+=nz*penetration;
+ const outward=a.v.x*nx+a.v.z*nz;
+ if(outward<0){a.v.x-=nx*outward*1.35;a.v.z-=nz*outward*1.35}
+ a.v.x*=.72;
+ a.v.z*=.72;
+ return true;
+}
 function resolveDynamicPair(a,b){const ox=overlapAxis(a,b,'x'),oy=overlapAxis(a,b,'y'),oz=overlapAxis(a,b,'z');if(ox<=0||oy<=0||oz<=0)return;let axis='x',pen=ox;if(oy<pen){axis='y';pen=oy}if(oz<pen){axis='z';pen=oz}const d=a.p[axis]-b.p[axis],sign=d>=0?1:-1;const total=a.mass+b.mass;a.p[axis]+=sign*pen*(b.mass/total);b.p[axis]-=sign*pen*(a.mass/total);const av=a.v[axis],bv=b.v[axis];const rel=av-bv;if(rel*sign<0){const e=.35;const j=-(1+e)*rel/(1/a.mass+1/b.mass);a.v[axis]+=sign*j/a.mass;b.v[axis]-=sign*j/b.mass}}
+function resolvePlayerObstacle(o){
+ if(!o||o.parent||o===held||(!o.isTrunkCollider&&!o.dynamic))return;
+ const playerRadius=.38;
+ const feet=camPos.y-1.35,head=camPos.y+.18;
+ if(head<=o.p.y-o.s.y||feet>=o.p.y+o.s.y)return;
+ const px=o.s.x+playerRadius-Math.abs(camPos.x-o.p.x);
+ const pz=o.s.z+playerRadius-Math.abs(camPos.z-o.p.z);
+ if(px<=0||pz<=0)return;
+ if(px<pz)camPos.x+=camPos.x>=o.p.x?px:-px;
+ else camPos.z+=camPos.z>=o.p.z?pz:-pz;
+}
+function collidePlayerWithScene(){for(const o of objects)resolvePlayerObstacle(o)}
 function physics(dt){
  // Camera movement is deliberately separate from object physics so testing feels responsive.
  const f=flatForward(),r=right();let mx=input.moveX,my=input.moveY;let vx=r.x*mx+f.x*my,vz=r.z*mx+f.z*my;const ml=Math.hypot(vx,vz);if(ml>1){vx/=ml;vz/=ml}const speed=5.5;camPos.x+=vx*speed*dt;camPos.z+=vz*speed*dt;
- camPos.x=clamp(camPos.x,-9,9);camPos.z=clamp(camPos.z,-9,9);
- if(input.jump&&grounded){camPos.y+=.02;grounded=false;input.jump=false}camPos.y+=GRAVITY*dt; if(camPos.y<1.35){camPos.y=1.35;grounded=true} if(held){const target=camPos.add(forward().mul(grabDistance));held.p.x=target.x;held.p.y=target.y;held.p.z=target.z;held.v.set(0,0,0)}
+ collidePlayerWithScene();
+ camPos.x=clamp(camPos.x,-56,56);camPos.z=clamp(camPos.z,-56,56);
+ const groundY=terrainHeight(camPos.x,camPos.z)+1.35;if(input.jump&&grounded){camVelY=7.2;grounded=false;input.jump=false}camVelY+=GRAVITY*dt;camPos.y+=camVelY*dt;if(camPos.y<=groundY){camPos.y=groundY;if(camVelY<0)camVelY=0;grounded=true} if(held){const target=camPos.add(forward().mul(grabDistance));held.p.x=target.x;held.p.y=target.y;held.p.z=target.z;held.v.set(0,0,0)}
  for(const o of objects){if(!o.dynamic||o.held)continue;o.v.y+=GRAVITY*dt;o.p.x+=o.v.x*dt;o.p.y+=o.v.y*dt;o.p.z+=o.v.z*dt;o.v.x*=Math.pow(AIR_DRAG,dt*60);o.v.z*=Math.pow(AIR_DRAG,dt*60)}
  for(let pass=0;pass<3;pass++){
   for(const a of objects)if(a.dynamic)for(const b of objects)if(!b.dynamic&&b!==a)resolveDynamicStatic(a,b);
   for(let i=0;i<objects.length;i++){const a=objects[i];if(!a.dynamic)continue;for(let j=i+1;j<objects.length;j++){const b=objects[j];if(b.dynamic)resolveDynamicPair(a,b)}}
  }
- for(const o of objects)if(o.dynamic&&o.p.y-o.s.y<-.001){o.p.y=o.s.y;o.v.y=Math.max(0,o.v.y);o.v.x*=.82;o.v.z*=.82}
+ for(const o of objects)if(o.dynamic){const floor=terrainHeight(o.p.x,o.p.z)+o.s.y;if(o.p.y<floor){o.p.y=floor;if(o.v.y<0)o.v.y=0;o.v.x*=.82;o.v.z*=.82}}
 }
 
 // ---------- Renderer ----------
@@ -134,7 +313,17 @@ gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.disable(gl.CULL_FACE);gl.disab
 const light=new Float32Array([4,8,-4]);
 function draw(o){if(!o.visible)return;const p=o.parent?o.parent.p.add(o.p):o.p;modelMatrix(modelMat,p,o.r,o.s);normalMatrix(normalMat,modelMat);gl.uniformMatrix4fv(uModel,false,modelMat);gl.uniformMatrix3fv(uNormal,false,normalMat);gl.uniform3f(uColor,o.color[0],o.color[1],o.color[2]);gl.bindVertexArray(o.mesh.vao);gl.drawElements(gl.TRIANGLES,o.mesh.count,gl.UNSIGNED_INT,0);for(const c of o.children)draw(c)}
 let last=performance.now(),acc=0;const FIX=1/120;
-function render(now){document.getElementById('status').textContent=held?'Holding object • E/GRAB to drop • F/THROW to launch':'Physics ready • Grab a cube to test';gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);view(viewMat,camPos,yaw,pitch);gl.useProgram(prog);gl.uniformMatrix4fv(uProj,false,proj);gl.uniformMatrix4fv(uView,false,viewMat);gl.uniform3fv(uLight,light);gl.uniform3f(uCam,camPos.x,camPos.y,camPos.z);for(const o of objects)if(!o.parent)draw(o)}
+function render(now){
+ for(const [id,r] of remotePlayers){r.x+=(r.tx-r.x)*.22;r.y+=(r.ty-r.y)*.22;r.z+=(r.tz-r.z)*.22;r.yaw+=(r.tyaw-r.yaw)*.22;const body=remoteMeshes.get(id);if(body){body.p.set(r.x,r.y-.9,r.z);body.r.y=r.yaw}}
+ networkTick(now);
+ document.getElementById('status').textContent=networkConnected?(held?'Multiplayer connected • Holding rock':'Multiplayer connected'):'Multiplayer reconnecting…';
+ gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);view(viewMat,camPos,yaw,pitch);
+ // Skybox: render first, with depth writes disabled, and keep it centred on the camera.
+ const skyM=modelMat;modelMatrix(skyM,camPos,new V(),new V(85,85,85));
+ gl.useProgram(skyProg);gl.depthMask(false);gl.uniformMatrix4fv(skyProj,false,proj);gl.uniformMatrix4fv(skyView,false,viewMat);gl.uniformMatrix4fv(skyModel,false,skyM);gl.uniform3f(skyCam,camPos.x,camPos.y,camPos.z);gl.bindVertexArray(meshes.box.vao);gl.drawElements(gl.TRIANGLES,meshes.box.count,gl.UNSIGNED_INT,0);gl.depthMask(true);
+ // Main world.
+ gl.useProgram(prog);gl.uniformMatrix4fv(uProj,false,proj);gl.uniformMatrix4fv(uView,false,viewMat);gl.uniform3fv(uLight,light);gl.uniform3f(uCam,camPos.x,camPos.y,camPos.z);for(const o of objects)if(!o.parent)draw(o)
+}
 function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;acc+=dt;while(acc>=FIX){physics(FIX);acc-=FIX}render(now);requestAnimationFrame(loop)}
 // ---------- Input: keyboard + independent touch pointers ----------
 const joy=document.getElementById('joy'),knob=document.getElementById('joyKnob'),lookZone=document.getElementById('lookZone');
@@ -147,6 +336,7 @@ joy.addEventListener('pointerdown',e=>{if(joyId!==null)return;joyId=e.pointerId;
 function moveJoy(e){if(e.pointerId!==joyId)return;const dx=e.clientX-joyCenter.x,dy=e.clientY-joyCenter.y,max=50,len=Math.hypot(dx,dy)||1,k=Math.min(1,max/len);input.moveX=dx/max*k;input.moveY=-dy/max*k;knob.style.transform=`translate(${dx*k}px,${dy*k}px)`;e.preventDefault()}
 joy.addEventListener('pointermove',moveJoy,{passive:false});function endJoy(e){if(e.pointerId!==joyId)return;joyId=null;input.moveX=input.moveY=0;knob.style.transform='translate(0,0)'}joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
 let lastLX=0,lastLY=0;lookZone.addEventListener('pointerdown',e=>{if(lookId!==null)return;lookId=e.pointerId;lastLX=e.clientX;lastLY=e.clientY;lookZone.setPointerCapture(e.pointerId);e.preventDefault()},{passive:false});
+document.addEventListener('touchmove',e=>{if(lookId!==null||joyId!==null)e.preventDefault()},{passive:false});
 lookZone.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-lastLX,dy=e.clientY-lastLY;lastLX=e.clientX;lastLY=e.clientY;yaw+=dx*.006;pitch=clamp(pitch-dy*.006,-1.45,1.45);e.preventDefault()},{passive:false});function endLook(e){if(e.pointerId!==lookId)return;lookId=null}lookZone.addEventListener('pointerup',endLook);lookZone.addEventListener('pointercancel',endLook);
 function keyboardMove(){let x=0,y=0;if(input.keys.a)x-=1;if(input.keys.d)x+=1;if(input.keys.w)y+=1;if(input.keys.s)y-=1;const l=Math.hypot(x,y)||1;return [x/l,y/l]}
 const oldPhysics=physics;
