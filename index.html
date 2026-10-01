@@ -1,36 +1,156 @@
-<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><title>3D Physics Sandbox</title><style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;touch-action:none;user-select:none;-webkit-user-select:none}canvas{display:block;width:100%;height:100%}#ui{position:fixed;inset:0;pointer-events:none;color:#fff;font:600 12px system-ui;text-shadow:0 1px 3px #000}#hint{position:absolute;top:max(8px,env(safe-area-inset-top));left:max(8px,env(safe-area-inset-left));padding:6px 8px;background:#0006;border-radius:8px}#cross{position:absolute;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%)}#cross:before,#cross:after{content:"";position:absolute;background:#fff;box-shadow:0 0 3px #000}#cross:before{left:8px;top:2px;width:2px;height:14px}#cross:after{left:2px;top:8px;width:14px;height:2px}#lookPad{position:absolute;left:50%;right:0;top:0;bottom:0;pointer-events:auto}#joy{position:absolute;width:126px;height:126px;border:2px solid #fff8;border-radius:50%;background:#fff1;pointer-events:none;display:none;transform:translate(-50%,-50%)}#knob{position:absolute;width:54px;height:54px;left:34px;top:34px;border:2px solid #fff;border-radius:50%;background:#ffffff88}.btn{position:absolute;width:62px;height:62px;border:2px solid #fffb;border-radius:50%;background:#233a59cc;color:#fff;font:800 11px system-ui;pointer-events:auto;text-shadow:0 1px 2px #000}.btn:active{transform:scale(.93);background:#4673aacc}#jump{right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom))}#grab{right:max(84px,calc(env(safe-area-inset-right) + 84px));bottom:max(18px,calc(env(safe-area-inset-bottom) + 18px))}#throw{right:max(22px,calc(env(safe-area-inset-right) + 22px));bottom:max(84px,calc(env(safe-area-inset-bottom) + 84px))}#reset{right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));width:50px;height:34px;border-radius:9px}@media(max-height:500px){#hint{font-size:10px}.btn{width:54px;height:54px}#grab{right:74px;bottom:12px}#throw{right:14px;bottom:72px}#jump{right:10px;bottom:10px}}@media(max-width:600px) and (orientation:portrait){#hint{max-width:48vw}.btn{width:56px;height:56px}#grab{right:72px}#throw{bottom:74px}}
-</style></head><body><canvas id="c"></canvas><div id="ui"><div id="hint">Left half: floating move stick<br>Right half: drag to look</div><div id="cross"></div><div id="lookPad"></div><div id="joy"><div id="knob"></div></div><button class="btn" id="jump">JUMP</button><button class="btn" id="grab">GRAB</button><button class="btn" id="throw">THROW</button><button class="btn" id="reset">RESET</button></div><script>
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>WebGL Physics Test Sandbox</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1017}canvas{display:block;width:100%;height:100%}
+#ui{position:fixed;inset:0;pointer-events:none;font-family:system-ui,sans-serif;color:#fff}#help{position:absolute;left:50%;top:12px;transform:translateX(-50%);padding:7px 12px;border-radius:12px;background:rgba(5,10,16,.55);font-size:12px;backdrop-filter:blur(6px);white-space:nowrap}.button{pointer-events:auto}.crosshair{position:absolute}.joy{position:absolute}.lookZone{position:absolute}.btn{}
+#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;text-shadow:0 1px 4px #000;opacity:.8}#joy{pointer-events:auto;position:absolute;left:24px;bottom:28px;width:128px;height:128px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 30px rgba(255,255,255,.04)}#joyKnob{position:absolute;left:39px;top:39px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.35);box-shadow:0 3px 14px rgba(0,0,0,.25)}#lookZone{pointer-events:auto;position:absolute;right:0;top:0;width:58%;height:100%}#jump,#grab,#throw,#reset{pointer-events:auto;position:absolute;border:1px solid rgba(255,255,255,.28);background:rgba(10,18,28,.65);color:#fff;border-radius:14px;padding:12px 14px;font-weight:700;letter-spacing:.06em;backdrop-filter:blur(8px);touch-action:none}#jump{right:24px;bottom:170px}#grab{right:120px;bottom:105px}#throw{right:24px;bottom:105px}#reset{right:24px;bottom:40px}#status{position:fixed;left:12px;bottom:10px;color:#dce9f7;font:12px system-ui,sans-serif;pointer-events:none;text-shadow:0 1px 3px #000;z-index:5}@media(max-width:700px){#help{font-size:10px;max-width:92%;overflow:hidden}.lookZone{width:52%}}</style>
+</head>
+<body><canvas id="gl"></canvas>
+<div id="ui">
+  <div id="crosshair">+</div>
+  <div id="help">WASD / left stick: move &nbsp; • &nbsp; drag right side: look &nbsp; • &nbsp; Space: jump &nbsp; • &nbsp; E: grab/drop &nbsp; • &nbsp; F: throw</div>
+  <div id="joy"><div id="joyKnob"></div></div>
+  <div id="lookZone"></div>
+  <button id="jump">JUMP</button><button id="grab">GRAB</button><button id="throw">THROW</button><button id="reset">RESET</button>
+</div><div id="status"></div><script>
 'use strict';
-const c=document.querySelector('#c'),g=c.getContext('2d',{alpha:false,desynchronized:true});let W,H,D,F;
-function resize(){D=Math.min(devicePixelRatio||1,1.5);W=innerWidth;H=innerHeight;c.width=W*D;c.height=H*D;g.setTransform(D,0,0,D,0,0);F=H*.5/Math.tan(Math.PI*70/360)}addEventListener('resize',resize);resize();
-class V{constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z}set(x,y,z){this.x=x;this.y=y;this.z=z;return this}copy(v){return this.set(v.x,v.y,v.z)}add(v){return new V(this.x+v.x,this.y+v.y,this.z+v.z)}sub(v){return new V(this.x-v.x,this.y-v.y,this.z-v.z)}mul(s){return new V(this.x*s,this.y*s,this.z*s)}dot(v){return this.x*v.x+this.y*v.y+this.z*v.z}cross(v){return new V(this.y*v.z-this.z*v.y,this.z*v.x-this.x*v.z,this.x*v.y-this.y*v.x)}len(){return Math.hypot(this.x,this.y,this.z)}norm(){return this.mul(1/(this.len()||1))}}
-const clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),lerp=(a,b,t)=>a+(b-a)*t;
-function rot(v,r){let x=v.x,y=v.y,z=v.z,c=Math.cos(r.x),s=Math.sin(r.x);[y,z]=[y*c-z*s,y*s+z*c];c=Math.cos(r.y);s=Math.sin(r.y);[x,z]=[x*c+z*s,-x*s+z*c];c=Math.cos(r.z);s=Math.sin(r.z);[x,y]=[x*c-y*s,x*s+y*c];return new V(x,y,z)}
-const CV=[new V(-.5,-.5,-.5),new V(.5,-.5,-.5),new V(.5,.5,-.5),new V(-.5,.5,-.5),new V(-.5,-.5,.5),new V(.5,-.5,.5),new V(.5,.5,.5),new V(-.5,.5,.5)],CT=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[3,7,6],[3,6,2],[1,2,6],[1,6,5],[0,4,7],[0,7,3]];
-class B{constructor(x,y,z,sx,sy,sz,col,m=1){this.p=new V(x,y,z);this.s=new V(sx,sy,sz);this.v=new V;this.r=new V;this.w=new V;this.col=col;this.im=m?1/m:0;this.held=false}min(){return new V(this.p.x-this.s.x/2,this.p.y-this.s.y/2,this.p.z-this.s.z/2)}max(){return new V(this.p.x+this.s.x/2,this.p.y+this.s.y/2,this.p.z+this.s.z/2)}}
-const stat=[new B(0,-1,8,50,2,50,'#527c3a',0),new B(0,2,25,26,4,1,'#737b89',0),new B(-13,2,8,1,4,34,'#68717e',0),new B(13,2,8,1,4,34,'#68717e',0),new B(0,1,14,5,2,2,'#856c4d',0),new B(-6,.5,7,4,1,4,'#7c6549',0),new B(7,1.5,4,3,3,3,'#596b86',0)];
-let bs=[];const cols=['#e45757','#e7a93c','#4cbf76','#4f8fe8','#a66de2','#e46fa6','#45bfc5'];function spawn(){bs=[];for(let i=0;i<18;i++){let s=.65+Math.random()*.6,b=new B((i%6-2.5)*1.7,1.1+(i/6|0)*1.5,7+(i/6|0)*1.7,s,s,s,cols[i%7],1);b.r.set(Math.random(),Math.random(),0);bs.push(b)}}spawn();
-const P={p:new V(0,1.75,-6),v:new V,r:.42,h:1.75,yaw:0,pitch:0,on:false,held:null,dist:2.5},cam=new V;
-function fwd(){let q=Math.cos(P.pitch);return new V(Math.sin(P.yaw)*q,Math.sin(P.pitch),Math.cos(P.yaw)*q)}function ff(){return new V(Math.sin(P.yaw),0,Math.cos(P.yaw))}function right(){return new V(Math.cos(P.yaw),0,-Math.sin(P.yaw))}
-const keys={};addEventListener('keydown',e=>{keys[e.code]=1;if(e.code==='Space')jump();if(e.code==='KeyE')grab();if(e.code==='KeyF')throwIt()});addEventListener('keyup',e=>keys[e.code]=0);
-let move={x:0,y:0},moveId=null,lookId=null,lastX=0,lastY=0;const joy=document.querySelector('#joy'),knob=document.querySelector('#knob');
-function moveStart(e){if(e.clientX>W*.5||moveId!==null||e.target.closest('button'))return;moveId=e.pointerId;c.setPointerCapture(e.pointerId);joy.style.display='block';joy.style.left=e.clientX+'px';joy.style.top=e.clientY+'px';joy.dataset.x=e.clientX;joy.dataset.y=e.clientY;e.preventDefault()}
-function moveNow(e){if(e.pointerId!==moveId)return;let dx=e.clientX-+joy.dataset.x,dy=e.clientY-+joy.dataset.y,m=42,d=Math.hypot(dx,dy);if(d>m){dx*=m/d;dy*=m/d}move.x=dx/m;move.y=dy/m;knob.style.transform=`translate(${dx}px,${dy}px)`}
-function moveEnd(e){if(e.pointerId!==moveId)return;moveId=null;move.x=move.y=0;joy.style.display='none';knob.style.transform='none'}
-c.addEventListener('pointerdown',moveStart);c.addEventListener('pointermove',moveNow);c.addEventListener('pointerup',moveEnd);c.addEventListener('pointercancel',moveEnd);
-const pad=document.querySelector('#lookPad');pad.addEventListener('pointerdown',e=>{if(e.target.closest('button')||lookId!==null)return;lookId=e.pointerId;lastX=e.clientX;lastY=e.clientY;pad.setPointerCapture(e.pointerId);e.preventDefault()});pad.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;let dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;P.yaw-=dx*.0042;P.pitch=clamp(P.pitch-dy*.0038,-1.35,1.35)});function lookEnd(e){if(e.pointerId===lookId)lookId=null}pad.addEventListener('pointerup',lookEnd);pad.addEventListener('pointercancel',lookEnd);
-function jump(){if(P.on){P.v.y=7.2;P.on=false}}
-function ray(o,d,b,max){let mn=b.min(),mx=b.max(),a=0,z=max;for(let k of['x','y','z']){if(Math.abs(d[k])<1e-8){if(o[k]<mn[k]||o[k]>mx[k])return null;continue}let n=(mn[k]-o[k])/d[k],f=(mx[k]-o[k])/d[k];if(n>f)[n,f]=[f,n];a=Math.max(a,n);z=Math.min(z,f);if(a>z)return null}return a}
-function grab(){if(P.held){P.held.held=false;P.held.v.copy(P.v);P.held=null;return}let best=null,t=4.5;for(let b of bs){let q=ray(cam,fwd(),b,t);if(q!==null&&q<t){t=q;best=b}}if(best){P.held=best;best.held=true;best.v.set(0,0,0);P.dist=clamp(t+.8,1.7,3.7)}}function throwIt(){if(!P.held)return;let b=P.held;b.held=false;b.v=fwd().mul(13).add(P.v);b.w.set(4,-3,2);P.held=null}
-for(let [id,fn]of[['jump',jump],['grab',grab],['throw',throwIt]])document.querySelector('#'+id).addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();fn()});document.querySelector('#reset').addEventListener('pointerdown',e=>{e.stopPropagation();P.p.set(0,1.75,-6);P.v.set(0,0,0);P.yaw=P.pitch=0;P.held=null;spawn()});
-function ov(a,b){let A=a.min(),X=a.max(),B=b.min(),Y=b.max();return A.x<Y.x&&X.x>B.x&&A.y<Y.y&&X.y>B.y&&A.z<Y.z&&X.z>B.z}
-function staticSolve(b,s){if(!ov(b,s))return;let a=b.min(),x=b.max(),m=s.min(),M=s.max(),q=[[M.x-a.x,'x',1],[x.x-m.x,'x',-1],[M.y-a.y,'y',1],[x.y-m.y,'y',-1],[M.z-a.z,'z',1],[x.z-m.z,'z',-1]].sort((u,v)=>u[0]-v[0])[0];b.p[q[1]]+=q[0]*q[2];let vn=b.v[q[1]]*q[2];if(vn<0)b.v[q[1]]-=1.2*vn*q[2];if(q[1]==='y'){b.v.x*=.78;b.v.z*=.78}}
-function pair(a,b){if(a.held||b.held||!ov(a,b))return;let ds=[[(a.s.x+b.s.x)/2-Math.abs(a.p.x-b.p.x),'x'],[(a.s.y+b.s.y)/2-Math.abs(a.p.y-b.p.y),'y'],[(a.s.z+b.s.z)/2-Math.abs(a.p.z-b.p.z),'z']].sort((u,v)=>u[0]-v[0]),[pen,k]=ds[0],sg=a.p[k]<b.p[k]?-1:1,total=a.im+b.im;a.p[k]+=sg*pen*a.im/total;b.p[k]-=sg*pen*b.im/total;let vn=(a.v[k]-b.v[k])*sg;if(vn<0){let j=-1.18*vn/total;a.v[k]+=j*sg*a.im;b.v[k]-=j*sg*b.im}}
-function pb(){return{min:()=>new V(P.p.x-P.r,P.p.y-P.h,P.p.z-P.r),max:()=>new V(P.p.x+P.r,P.p.y,P.p.z+P.r)}}function pmove(k,d){P.p[k]+=d;for(let s of stat)ps(s,k,d);for(let b of bs)if(!b.held)ps(b,k,d)}function ps(s,k,d){if(!ov(pb(),s))return;let m=s.min(),M=s.max();if(k==='x'){P.p.x=d>0?m.x-P.r:M.x+P.r;P.v.x=0}else if(k==='z'){P.p.z=d>0?m.z-P.r:M.z+P.r;P.v.z=0}else{if(d<0){P.p.y=M.y+P.h;P.on=true}else P.p.y=m.y;P.v.y=0}}
-function step(dt){let x=move.x+(keys.KeyD?1:0)-(keys.KeyA?1:0),z=-move.y+(keys.KeyW?1:0)-(keys.KeyS?1:0),l=Math.hypot(x,z);if(l>1){x/=l;z/=l}let wish=right().mul(x).add(ff().mul(z)),t=clamp((P.on?28:8)*dt,0,1);P.v.x=lerp(P.v.x,wish.x*(P.on?5.6:4.3),t);P.v.z=lerp(P.v.z,wish.z*(P.on?5.6:4.3),t);P.v.y-=18*dt;P.on=false;pmove('x',P.v.x*dt);pmove('z',P.v.z*dt);pmove('y',P.v.y*dt);cam.set(P.p.x,P.p.y-.14,P.p.z);for(let b of bs){if(b.held)continue;b.v.y-=18*dt;b.p=b.p.add(b.v.mul(dt));b.r=b.r.add(b.w.mul(dt));b.w=b.w.mul(.995);for(let s of stat)staticSolve(b,s);if(b.p.y<-15){b.p.set(0,8,6);b.v.set(0,0,0)}}for(let p=0;p<2;p++)for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++)pair(bs[i],bs[j]);if(P.held){let b=P.held,target=cam.add(fwd().mul(P.dist));b.v=target.sub(b.p).mul(18).add(P.v.mul(.3));let l=b.v.len();if(l>18)b.v=b.v.mul(18/l);b.p=b.p.add(b.v.mul(dt));b.r.y+=dt;for(let s of stat)staticSolve(b,s)}if(P.p.y<-15){P.p.set(0,1.75,-6);P.v.set(0,0,0)}}
-const near=.08,light=new V(-.35,.8,-.45).norm(),tris=[];function wc(p){let x=p.x-cam.x,y=p.y-cam.y,z=p.z-cam.z,c=Math.cos(-P.yaw),s=Math.sin(-P.yaw);[x,z]=[x*c+z*s,-x*s+z*c];c=Math.cos(-P.pitch);s=Math.sin(-P.pitch);[y,z]=[y*c-z*s,y*s+z*c];return new V(x,y,z)}function clip(poly){let o=[];for(let i=0;i<poly.length;i++){let a=poly[i],b=poly[(i+1)%poly.length],A=a.z>=near,B=b.z>=near;if(A)o.push(a);if(A!==B){let t=(near-a.z)/(b.z-a.z);o.push(new V(lerp(a.x,b.x,t),lerp(a.y,b.y,t),near))}}return o}function proj(v){return{x:W/2+v.x*F/v.z,y:H/2-v.y*F/v.z,z:v.z}}function shade(h,k){let n=parseInt(h.slice(1),16),r=n>>16,q=n>>8&255,b=n&255;return`rgb(${Math.min(255,r*k)|0},${Math.min(255,q*k)|0},${Math.min(255,b*k)|0})`}
-function mesh(b){let vs=CV.map(v=>rot(new V(v.x*b.s.x,v.y*b.s.y,v.z*b.s.z),b.r).add(b.p));for(let t of CT){let a=vs[t[0]],d=vs[t[1]],e=vs[t[2]],n=d.sub(a).cross(e.sub(a)).norm(),cen=a.add(d).add(e).mul(1/3);if(n.dot(cam.sub(cen))<=0)continue;let p=clip([wc(a),wc(d),wc(e)]);for(let i=1;i<p.length-1;i++){let A=proj(p[0]),B=proj(p[i]),C=proj(p[i+1]);tris.push({A,B,C,z:(A.z+B.z+C.z)/3,col:shade(b.col,.25+.75*Math.max(0,n.dot(light)))})}}}
-function render(){let sky=g.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#61a4dd');sky.addColorStop(.65,'#c3ddec');sky.addColorStop(1,'#dfe5ca');g.fillStyle=sky;g.fillRect(0,0,W,H);tris.length=0;for(let b of stat)mesh(b);for(let b of bs)mesh(b);tris.sort((a,b)=>b.z-a.z);for(let t of tris){g.beginPath();g.moveTo(t.A.x,t.A.y);g.lineTo(t.B.x,t.B.y);g.lineTo(t.C.x,t.C.y);g.closePath();g.fillStyle=t.col;g.fill();g.strokeStyle='#10151d55';g.lineWidth=.6;g.stroke()}document.querySelector('#grab').textContent=P.held?'DROP':'GRAB'}
-let last=performance.now(),acc=0,fix=1/120;function loop(now){acc+=Math.min(.05,(now-last)/1000);last=now;for(let n=0;acc>=fix&&n<8;n++,acc-=fix)step(fix);render();requestAnimationFrame(loop)}requestAnimationFrame(loop);
-</script></body></html>
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl2',{antialias:true,alpha:false,depth:true,stencil:false,preserveDrawingBuffer:false});
+if(!gl){document.getElementById('status').textContent='WebGL2 is required';throw new Error('WebGL2 unavailable');}
+
+// ---------- Small, allocation-light math library ----------
+class V{constructor(x=0,y=0,z=0){this.x=x;this.y=y;this.z=z}set(x,y,z){this.x=x;this.y=y;this.z=z;return this}copy(v){return this.set(v.x,v.y,v.z)}add(v){return new V(this.x+v.x,this.y+v.y,this.z+v.z)}sub(v){return new V(this.x-v.x,this.y-v.y,this.z-v.z)}mul(s){return new V(this.x*s,this.y*s,this.z*s)}len(){return Math.hypot(this.x,this.y,this.z)}norm(){let l=this.len()||1;return new V(this.x/l,this.y/l,this.z/l)}dot(v){return this.x*v.x+this.y*v.y+this.z*v.z}cross(v){return new V(this.y*v.z-this.z*v.y,this.z*v.x-this.x*v.z,this.x*v.y-this.y*v.x)}}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function mat4(){return new Float32Array(16)}
+function identity(o){o.fill(0);o[0]=o[5]=o[10]=o[15]=1;return o}
+function perspective(o,fov,aspect,near,far){const f=1/Math.tan(fov*.5),nf=1/(near-far);o.fill(0);o[0]=f/aspect;o[5]=f;o[10]=(far+near)*nf;o[11]=-1;o[14]=2*far*near*nf;return o}
+function view(o,pos,yaw,pitch){
+  // Camera looks +Z at yaw=0. This basis is orthonormal and never shears.
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+  const fx=sy*cp,fy=sp,fz=cy*cp;
+  const rx=cy,ry=0,rz=-sy;
+  const ux=-sy*sp,uy=cp,uz=-cy*sp;
+  o[0]=rx;o[1]=ux;o[2]=-fx;o[3]=0;
+  o[4]=ry;o[5]=uy;o[6]=-fy;o[7]=0;
+  o[8]=rz;o[9]=uz;o[10]=-fz;o[11]=0;
+  o[12]=-rx*pos.x-ry*pos.y-rz*pos.z;
+  o[13]=-ux*pos.x-uy*pos.y-uz*pos.z;
+  o[14]=fx*pos.x+fy*pos.y+fz*pos.z;o[15]=1;
+  return o;
+}
+function modelMatrix(o,p,r,s){const cx=Math.cos(r.x),sx=Math.sin(r.x),cy=Math.cos(r.y),sy=Math.sin(r.y),cz=Math.cos(r.z),sz=Math.sin(r.z);o[0]=cz*cy*s.x;o[1]=sz*cy*s.x;o[2]=-sy*s.x;o[3]=0;o[4]=(cz*sy*sx-sz*cx)*s.y;o[5]=(sz*sy*sx+cz*cx)*s.y;o[6]=cy*sx*s.y;o[7]=0;o[8]=(cz*sy*cx+sz*sx)*s.z;o[9]=(sz*sy*cx-cz*sx)*s.z;o[10]=cy*cx*s.z;o[11]=0;o[12]=p.x;o[13]=p.y;o[14]=p.z;o[15]=1;return o}
+function normalMatrix(o,m){const a=m[0],b=m[1],c=m[2],d=m[4],e=m[5],f=m[6],g=m[8],h=m[9],i=m[10];const A=e*i-f*h,B=f*g-d*i,C=d*h-e*g,det=a*A+b*B+c*C;const k=1/(det||1);o[0]=A*k;o[1]=(c*h-b*i)*k;o[2]=(b*f-c*e)*k;o[3]=B*k;o[4]=(a*i-c*g)*k;o[5]=(c*d-a*f)*k;o[6]=C*k;o[7]=(b*g-a*h)*k;o[8]=(a*e-b*d)*k;return o}
+// ---------- Shader ----------
+const vs=`#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;layout(location=1) in vec3 aNormal;
+uniform mat4 uProj,uView,uModel;uniform mat3 uNormal;
+out vec3 vN;out vec3 vW;
+void main(){vec4 w=uModel*vec4(aPos,1.0);vW=w.xyz;vN=uNormal*aNormal;gl_Position=uProj*uView*w;}`;
+const fs=`#version 300 es
+precision highp float;
+in vec3 vN;in vec3 vW;uniform vec3 uColor,uLight,uCam;out vec4 outColor;
+void main(){vec3 n=normalize(vN);if(!gl_FrontFacing)n=-n;vec3 l=normalize(uLight-vW);float d=max(dot(n,l),0.0);float hemi=.5+.5*n.y;float spec=pow(max(dot(reflect(-l,n),normalize(uCam-vW)),0.0),48.0);float distanceFade=1.0/(1.0+0.018*dot(uLight-vW,uLight-vW));float light=.24+.50*d*distanceFade+.18*hemi+.08*spec;vec3 skyTint=vec3(.92,.96,1.0);vec3 groundTint=vec3(.78,.72,.64);vec3 tint=mix(groundTint,skyTint,hemi);outColor=vec4(uColor*light*tint,1.0);}`;
+function shader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
+const prog=gl.createProgram();gl.attachShader(prog,shader(gl.VERTEX_SHADER,vs));gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);
+const uProj=gl.getUniformLocation(prog,'uProj'),uView=gl.getUniformLocation(prog,'uView'),uModel=gl.getUniformLocation(prog,'uModel'),uNormal=gl.getUniformLocation(prog,'uNormal'),uColor=gl.getUniformLocation(prog,'uColor'),uLight=gl.getUniformLocation(prog,'uLight'),uCam=gl.getUniformLocation(prog,'uCam');
+if(!uProj||!uView||!uModel||!uNormal||!uColor||!uLight||!uCam)throw new Error('Renderer shader uniform lookup failed');
+
+// ---------- Reusable geometry API ----------
+function makeMesh(data){
+  const v=gl.createVertexArray(),vb=gl.createBuffer(),ib=gl.createBuffer();gl.bindVertexArray(v);
+  gl.bindBuffer(gl.ARRAY_BUFFER,vb);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data.vertices),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,24,0);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,3,gl.FLOAT,false,24,12);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,new Uint32Array(data.indices),gl.STATIC_DRAW);
+  gl.bindVertexArray(null);return {vao:v,count:data.indices.length};
+}
+function boxMesh(){
+ const v=[-1,-1,-1,0,0,-1, 1,-1,-1,0,0,-1, 1,1,-1,0,0,-1,-1,1,-1,0,0,-1,-1,-1,0,0,1, 1,-1,0,0,1, 1,1,0,0,1,-1,1,0,0,1,-1,-1,-1,0,0,0];
+ // Generated below to keep normals explicit and unambiguous.
+ const verts=[],idx=[];const faces=[[[ -1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[0,0,-1]],[[1,-1,1],[-1,-1,1],[-1,1,1],[1,1,1],[0,0,1]],[[-1,-1,1],[-1,-1,-1],[-1,1,-1],[-1,1,1],[-1,0,0]],[[1,-1,-1],[1,-1,1],[1,1,1],[1,1,-1],[1,0,0]],[[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,1],[0,1,0]],[[-1,-1,1],[1,-1,1],[1,-1,-1],[-1,-1,-1],[0,-1,0]]];
+ for(const f of faces){const base=verts.length/6;for(let i=0;i<4;i++)verts.push(...f[i],...f[4]);idx.push(base,base+2,base+1,base,base+3,base+2)}return makeMesh({vertices:verts,indices:idx});
+}
+function sphereMesh(seg=24,rings=12){const v=[],idx=[];for(let y=0;y<=rings;y++){const p=y/rings,phi=p*Math.PI;const sp=Math.sin(phi),cp=Math.cos(phi);for(let x=0;x<=seg;x++){const t=x/seg*2*Math.PI,st=Math.sin(t),ct=Math.cos(t);v.push(sp*ct,cp,sp*st,sp*ct,cp,sp*st)}}for(let y=0;y<rings;y++)for(let x=0;x<seg;x++){const a=y*(seg+1)+x,b=a+1,c=a+seg+1,d=c+1;idx.push(a,b,c,b,d,c)}return makeMesh({vertices:v,indices:idx});}
+function cylinderMesh(seg=24){const v=[],idx=[];for(let y=0;y<2;y++){const py=y*2-1;for(let i=0;i<=seg;i++){const t=i/seg*2*Math.PI,c=Math.cos(t),s=Math.sin(t);v.push(c,py,s,c,0,s)}}for(let i=0;i<seg;i++){const a=i,b=i+1,c=seg+1+i,d=c+1;idx.push(a,b,c,b,d,c)}return makeMesh({vertices:v,indices:idx});}
+const meshes={box:boxMesh(),sphere:sphereMesh(),cylinder:cylinderMesh()};
+
+// ---------- Scene / modelling objects ----------
+class Obj{constructor(mesh,pos,scale,color){this.mesh=mesh;this.p=pos;this.s=scale;this.r=new V();this.color=color;this.visible=true;this.parent=null;this.children=[];this.dynamic=false;this.v=new V();this.held=false;this.mass=1}}
+const objects=[];
+function add(mesh,p,s,c){const o=new Obj(mesh,new V(...p),new V(...s),c);objects.push(o);return o}
+function part(mesh,p,s,c,parent=null){const o=add(mesh,p,s,c);o.parent=parent;if(parent)parent.children.push(o);return o}
+
+// Demonstration scene: deliberately uses only the same stable mesh API that future detailed models will use.
+const floor=add(meshes.box,[0,-.25,0],[10,.25,10],[.20,.25,.30]);
+const wallN=add(meshes.box,[0,1,-10],[10,1,.25],[.14,.18,.23]);const wallS=add(meshes.box,[0,1,10],[10,1,.25],[.14,.18,.23]);const wallW=add(meshes.box,[-10,1,0],[.25,1,10],[.14,.18,.23]);const wallE=add(meshes.box,[10,1,0],[.25,1,10],[.14,.18,.23]);
+const platform=add(meshes.box,[0,.25,4],[3,.25,3],[.32,.38,.46]);
+const cube1=add(meshes.box,[-2,1,2],[.65,.65,.65],[.18,.55,.95]);cube1.dynamic=true;cube1.v.set(0,0,0);cube1.mass=1;
+const cube2=add(meshes.box,[2,1,3],[.8,.8,.8],[.92,.38,.18]);cube2.dynamic=true;
+const pillar=add(meshes.cylinder,[-3,1,-1],[.7,1,.7],[.35,.72,.45]);
+
+// Simple articulated demonstration model. Parent-relative offsets make complex models easy to assemble.
+const root=part(meshes.sphere,[0,1.7,-1],[.48,.62,.42],[.82,.72,.54]);
+const head=part(meshes.sphere,[0,2.45,-1],[.36,.36,.36],[.9,.72,.55],root);
+const torso=part(meshes.box,[0,1.15,-1],[.55,.75,.3],[.22,.38,.58],root);
+const armL=part(meshes.cylinder,[-.78,1.1,-1],[.16,.65,.16],[.18,.55,.95],root);armL.r.z=-.25;
+const armR=part(meshes.cylinder,[.78,1.1,-1],[.16,.65,.16],[.18,.55,.95],root);armR.r.z=.25;
+
+// ---------- Camera + controls ----------
+const camPos=new V(0,3.2,-8),proj=mat4(),viewMat=mat4(),modelMat=mat4(),normalMat=new Float32Array(9);
+let yaw=0,pitch=-.10;
+const input={keys:Object.create(null),moveX:0,moveY:0,lookX:0,lookY:0,jump:false};
+let grounded=false,held=null,grabDistance=4.2;
+function forward(){const cp=Math.cos(pitch);return new V(Math.sin(yaw)*cp,Math.sin(pitch),Math.cos(yaw)*cp)}
+function flatForward(){return new V(Math.sin(yaw),0,Math.cos(yaw))}
+function right(){return new V(Math.cos(yaw),0,-Math.sin(yaw))}
+function resetScene(){cube1.p.set(-2,1,2);cube1.v.set(0,0,0);cube2.p.set(2,1,3);cube2.v.set(0,0,0);camPos.set(0,3.2,-8);yaw=0;pitch=-.10;held=null;input.jump=false}
+function rayGrab(){const f=forward(),origin=camPos;let best=null,bestD=grabDistance;for(const o of objects){if(!o.dynamic||o===held)continue;const q=o.p.sub(origin);const t=q.dot(f);if(t<.25||t>grabDistance)continue;const closest=origin.add(f.mul(t));const dist=o.p.sub(closest).len();const radius=Math.max(o.s.x,o.s.y,o.s.z)*1.35;if(dist<=radius&&t<bestD){best=o;bestD=t}}if(best){held=best;held.held=true;held.v.set(0,0,0);return true}return false}
+function dropHeld(throwing=false){if(!held)return;const f=forward();if(throwing)held.v= f.mul(10);held.held=false;held=null}
+function toggleGrab(){if(held)dropHeld(false);else rayGrab()}
+// ---------- Physics ----------
+const GRAVITY=-18,FLOOR_FRICTION=.78,AIR_DRAG=.999;
+function overlapAxis(a,b,axis){return (a.s[axis]+b.s[axis])-Math.abs(a.p[axis]-b.p[axis])}
+function resolveDynamicStatic(a,b){const ox=overlapAxis(a,b,'x'),oy=overlapAxis(a,b,'y'),oz=overlapAxis(a,b,'z');if(ox<=0||oy<=0||oz<=0)return false;let axis='x',pen=ox;if(oy<pen){axis='y';pen=oy}if(oz<pen){axis='z';pen=oz}const sign=a.p[axis]>=b.p[axis]?1:-1;a.p[axis]+=sign*pen;if(axis==='y'){if(a.v.y*sign<0)a.v.y=-a.v.y*.42;a.v.x*=FLOOR_FRICTION;a.v.z*=FLOOR_FRICTION}else a.v[axis]*=-.35;return true}
+function resolveDynamicPair(a,b){const ox=overlapAxis(a,b,'x'),oy=overlapAxis(a,b,'y'),oz=overlapAxis(a,b,'z');if(ox<=0||oy<=0||oz<=0)return;let axis='x',pen=ox;if(oy<pen){axis='y';pen=oy}if(oz<pen){axis='z';pen=oz}const d=a.p[axis]-b.p[axis],sign=d>=0?1:-1;const total=a.mass+b.mass;a.p[axis]+=sign*pen*(b.mass/total);b.p[axis]-=sign*pen*(a.mass/total);const av=a.v[axis],bv=b.v[axis];const rel=av-bv;if(rel*sign<0){const e=.35;const j=-(1+e)*rel/(1/a.mass+1/b.mass);a.v[axis]+=sign*j/a.mass;b.v[axis]-=sign*j/b.mass}}
+function physics(dt){
+ // Camera movement is deliberately separate from object physics so testing feels responsive.
+ const f=flatForward(),r=right();let mx=input.moveX,my=input.moveY;let vx=r.x*mx+f.x*my,vz=r.z*mx+f.z*my;const ml=Math.hypot(vx,vz);if(ml>1){vx/=ml;vz/=ml}const speed=5.5;camPos.x+=vx*speed*dt;camPos.z+=vz*speed*dt;
+ camPos.x=clamp(camPos.x,-9,9);camPos.z=clamp(camPos.z,-9,9);
+ if(input.jump&&grounded){camPos.y+=.02;grounded=false;input.jump=false}camPos.y+=GRAVITY*dt; if(camPos.y<1.35){camPos.y=1.35;grounded=true} if(held){const target=camPos.add(forward().mul(grabDistance));held.p.x=target.x;held.p.y=target.y;held.p.z=target.z;held.v.set(0,0,0)}
+ for(const o of objects){if(!o.dynamic||o.held)continue;o.v.y+=GRAVITY*dt;o.p.x+=o.v.x*dt;o.p.y+=o.v.y*dt;o.p.z+=o.v.z*dt;o.v.x*=Math.pow(AIR_DRAG,dt*60);o.v.z*=Math.pow(AIR_DRAG,dt*60)}
+ for(let pass=0;pass<3;pass++){
+  for(const a of objects)if(a.dynamic)for(const b of objects)if(!b.dynamic&&b!==a)resolveDynamicStatic(a,b);
+  for(let i=0;i<objects.length;i++){const a=objects[i];if(!a.dynamic)continue;for(let j=i+1;j<objects.length;j++){const b=objects[j];if(b.dynamic)resolveDynamicPair(a,b)}}
+ }
+ for(const o of objects)if(o.dynamic&&o.p.y-o.s.y<-.001){o.p.y=o.s.y;o.v.y=Math.max(0,o.v.y);o.v.x*=.82;o.v.z*=.82}
+}
+
+// ---------- Renderer ----------
+let W=1,H=1;function resize(){const dpr=Math.min(devicePixelRatio||1,2);W=Math.max(1,Math.floor(innerWidth*dpr));H=Math.max(1,Math.floor(innerHeight*dpr));if(canvas.width!==W||canvas.height!==H){canvas.width=W;canvas.height=H;gl.viewport(0,0,W,H);perspective(proj,Math.PI/3,W/H,.05,150)}}addEventListener('resize',resize);resize();
+gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LESS);gl.disable(gl.CULL_FACE);gl.disable(gl.BLEND);gl.clearColor(.055,.075,.11,1);
+const light=new Float32Array([4,8,-4]);
+function draw(o){if(!o.visible)return;const p=o.parent?o.parent.p.add(o.p):o.p;modelMatrix(modelMat,p,o.r,o.s);normalMatrix(normalMat,modelMat);gl.uniformMatrix4fv(uModel,false,modelMat);gl.uniformMatrix3fv(uNormal,false,normalMat);gl.uniform3f(uColor,o.color[0],o.color[1],o.color[2]);gl.bindVertexArray(o.mesh.vao);gl.drawElements(gl.TRIANGLES,o.mesh.count,gl.UNSIGNED_INT,0);for(const c of o.children)draw(c)}
+let last=performance.now(),acc=0;const FIX=1/120;
+function render(now){document.getElementById('status').textContent=held?'Holding object • E/GRAB to drop • F/THROW to launch':'Physics ready • Grab a cube to test';gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);view(viewMat,camPos,yaw,pitch);gl.useProgram(prog);gl.uniformMatrix4fv(uProj,false,proj);gl.uniformMatrix4fv(uView,false,viewMat);gl.uniform3fv(uLight,light);gl.uniform3f(uCam,camPos.x,camPos.y,camPos.z);for(const o of objects)if(!o.parent)draw(o)}
+function loop(now){const dt=Math.min(.05,(now-last)/1000);last=now;acc+=dt;while(acc>=FIX){physics(FIX);acc-=FIX}render(now);requestAnimationFrame(loop)}
+// ---------- Input: keyboard + independent touch pointers ----------
+const joy=document.getElementById('joy'),knob=document.getElementById('joyKnob'),lookZone=document.getElementById('lookZone');
+let joyId=null,lookId=null,joyCenter={x:0,y:0};
+function setKey(e,down){const k=e.key.toLowerCase();if(['w','a','s','d',' '].includes(k))e.preventDefault();input.keys[k]=down}
+addEventListener('keydown',e=>{setKey(e,true);if(e.repeat)return;if(e.key===' ')input.jump=true;if(e.key.toLowerCase()==='e')toggleGrab();if(e.key.toLowerCase()==='f')dropHeld(true);if(e.key.toLowerCase()==='r')resetScene()});addEventListener('keyup',e=>setKey(e,false));
+function button(el,fn){el.addEventListener('pointerdown',e=>{e.preventDefault();fn();},{passive:false})}
+button(document.getElementById('jump'),()=>input.jump=true);button(document.getElementById('grab'),toggleGrab);button(document.getElementById('throw'),()=>dropHeld(true));button(document.getElementById('reset'),resetScene);
+joy.addEventListener('pointerdown',e=>{if(joyId!==null)return;joyId=e.pointerId;joy.setPointerCapture(e.pointerId);const r=joy.getBoundingClientRect();joyCenter.x=r.left+r.width/2;joyCenter.y=r.top+r.height/2;moveJoy(e)}, {passive:false});
+function moveJoy(e){if(e.pointerId!==joyId)return;const dx=e.clientX-joyCenter.x,dy=e.clientY-joyCenter.y,max=50,len=Math.hypot(dx,dy)||1,k=Math.min(1,max/len);input.moveX=dx/max*k;input.moveY=-dy/max*k;knob.style.transform=`translate(${dx*k}px,${dy*k}px)`;e.preventDefault()}
+joy.addEventListener('pointermove',moveJoy,{passive:false});function endJoy(e){if(e.pointerId!==joyId)return;joyId=null;input.moveX=input.moveY=0;knob.style.transform='translate(0,0)'}joy.addEventListener('pointerup',endJoy);joy.addEventListener('pointercancel',endJoy);
+let lastLX=0,lastLY=0;lookZone.addEventListener('pointerdown',e=>{if(lookId!==null)return;lookId=e.pointerId;lastLX=e.clientX;lastLY=e.clientY;lookZone.setPointerCapture(e.pointerId);e.preventDefault()},{passive:false});
+lookZone.addEventListener('pointermove',e=>{if(e.pointerId!==lookId)return;const dx=e.clientX-lastLX,dy=e.clientY-lastLY;lastLX=e.clientX;lastLY=e.clientY;yaw+=dx*.006;pitch=clamp(pitch-dy*.006,-1.45,1.45);e.preventDefault()},{passive:false});function endLook(e){if(e.pointerId!==lookId)return;lookId=null}lookZone.addEventListener('pointerup',endLook);lookZone.addEventListener('pointercancel',endLook);
+function keyboardMove(){let x=0,y=0;if(input.keys.a)x-=1;if(input.keys.d)x+=1;if(input.keys.w)y+=1;if(input.keys.s)y-=1;const l=Math.hypot(x,y)||1;return [x/l,y/l]}
+const oldPhysics=physics;
+physics=function(dt){const k=keyboardMove();if(joyId===null){input.moveX=k[0];input.moveY=k[1]}oldPhysics(dt);};
+requestAnimationFrame(loop);
+</script>
+</body></html>
