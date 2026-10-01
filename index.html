@@ -201,14 +201,25 @@ function removeRemotePlayer(id){id=String(id);remotePlayers.delete(id);const bod
 function applyRock(r){
   const id=String(r.id??r.rockId??r.netId??'');if(!id)return;
   const o=objects.find(x=>x.netId===id);if(!o)return;
-  const pos=xyz(r.position),vel=xyz(r.velocity);
-  if(pos&&!o.held){o.p.set(pos.x,pos.y,pos.z)}
-  if(vel&&!o.held){o.v.set(vel.x,vel.y,vel.z)}
-  if(typeof r.held==='boolean'&&r.held!==o.held){o.held=r.held}
+  const pos=xyz(r.position??r),vel=r.velocity?xyz(r.velocity):{x:num(r.vx),y:num(r.vy),z:num(r.vz)};
+  if(pos){o.netTx=pos.x;o.netTy=pos.y;o.netTz=pos.z;if(!o.netReady)o.p.set(pos.x,pos.y,pos.z);o.netReady=true}
+  if(vel){o.netVx=vel.x;o.netVy=vel.y;o.netVz=vel.z;o.v.set(vel.x,vel.y,vel.z)}
+  const holder=r.heldBy??null;o.netHolder=holder;
+  o.held=holder===networkId;
+}
+function applyRockList(list){
+  for(const r of list||[])applyRock(r);
 }
 function processNetworkMessage(msg){
   if(!msg||typeof msg!=='object')return;
   if(msg.type==='welcome'){networkId=msg.id;return}
+  if(msg.type==='snapshot'){
+    const seen=new Set();
+    for(const pl of msg.players||[]){applyRemotePlayer(pl);seen.add(String(pl.id))}
+    for(const id of [...remotePlayers.keys()])if(!seen.has(id))removeRemotePlayer(id);
+    applyRockList(msg.rocks);
+    return;
+  }
   if(msg.type==='playerJoined'||msg.type==='player')applyRemotePlayer(msg.player??msg);
   if(msg.type==='playerLeft')removeRemotePlayer(msg.id);
   if(msg.type==='players'){
@@ -249,7 +260,7 @@ function flatForward(){return new V(Math.sin(yaw),0,Math.cos(yaw))}
 function right(){return new V(Math.cos(yaw),0,-Math.sin(yaw))}
 function resetScene(){for(const o of objects)if(o.dynamic){o.held=false;o.v.set(0,0,0);o.p.y=terrainHeight(o.p.x,o.p.z)+o.s.y}camPos.set(0,terrainHeight(0,-8)+1.35,-8);camVelY=0;yaw=0;pitch=-.10;grounded=false;held=null;input.jump=false}
 function rayGrab(){const f=forward(),origin=camPos;let best=null,bestD=grabDistance;for(const o of objects){if(!o.dynamic||o===held)continue;const q=o.p.sub(origin);const t=q.dot(f);if(t<.25||t>grabDistance)continue;const closest=origin.add(f.mul(t));const dist=o.p.sub(closest).len();const radius=Math.max(o.s.x,o.s.y,o.s.z)*1.35;if(dist<=radius&&t<bestD){best=o;bestD=t}}if(best){held=best;held.held=true;held.v.set(0,0,0);sendNetwork({type:'grab',rockId:held.netId});return true}return false}
-function dropHeld(throwing=false){if(!held)return;const f=forward();if(throwing){held.v=f.mul(10);sendNetwork({type:'throw',rockId:held.netId,velocity:{x:held.v.x,y:held.v.y,z:held.v.z},position:{x:held.p.x,y:held.p.y,z:held.p.z}})}else sendNetwork({type:'drop',rockId:held.netId});held.held=false;held=null}
+function dropHeld(throwing=false){if(!held)return;const f=forward();if(throwing){held.v=f.mul(10);sendNetwork({type:'throw',rockId:held.netId,velocity:{x:held.v.x,y:held.v.y,z:held.v.z},position:{x:held.p.x,y:held.p.y,z:held.p.z}})}else sendNetwork({type:'drop',rockId:held.netId,x:held.p.x,y:held.p.y,z:held.p.z});held.held=false;held=null}
 function toggleGrab(){if(held)dropHeld(false);else rayGrab()}
 // ---------- Physics ----------
 const GRAVITY=-18,FLOOR_FRICTION=.78,AIR_DRAG=.999;
@@ -299,12 +310,14 @@ function physics(dt){
  collidePlayerWithScene();
  camPos.x=clamp(camPos.x,-56,56);camPos.z=clamp(camPos.z,-56,56);
  const groundY=terrainHeight(camPos.x,camPos.z)+1.35;if(input.jump&&grounded){camVelY=7.2;grounded=false;input.jump=false}camVelY+=GRAVITY*dt;camPos.y+=camVelY*dt;if(camPos.y<=groundY){camPos.y=groundY;if(camVelY<0)camVelY=0;grounded=true} if(held){const target=camPos.add(forward().mul(grabDistance));held.p.x=target.x;held.p.y=target.y;held.p.z=target.z;held.v.set(0,0,0)}
- for(const o of objects){if(!o.dynamic||o.held)continue;o.v.y+=GRAVITY*dt;o.p.x+=o.v.x*dt;o.p.y+=o.v.y*dt;o.p.z+=o.v.z*dt;o.v.x*=Math.pow(AIR_DRAG,dt*60);o.v.z*=Math.pow(AIR_DRAG,dt*60)}
- for(let pass=0;pass<3;pass++){
-  for(const a of objects)if(a.dynamic)for(const b of objects)if(!b.dynamic&&b!==a)resolveDynamicStatic(a,b);
-  for(let i=0;i<objects.length;i++){const a=objects[i];if(!a.dynamic)continue;for(let j=i+1;j<objects.length;j++){const b=objects[j];if(b.dynamic)resolveDynamicPair(a,b)}}
+ if(!networkConnected){
+  for(const o of objects){if(!o.dynamic||o.held)continue;o.v.y+=GRAVITY*dt;o.p.x+=o.v.x*dt;o.p.y+=o.v.y*dt;o.p.z+=o.v.z*dt;o.v.x*=Math.pow(AIR_DRAG,dt*60);o.v.z*=Math.pow(AIR_DRAG,dt*60)}
+  for(let pass=0;pass<3;pass++){
+   for(const a of objects)if(a.dynamic)for(const b of objects)if(!b.dynamic&&b!==a)resolveDynamicStatic(a,b);
+   for(let i=0;i<objects.length;i++){const a=objects[i];if(!a.dynamic)continue;for(let j=i+1;j<objects.length;j++){const b=objects[j];if(b.dynamic)resolveDynamicPair(a,b)}}
+  }
+  for(const o of objects)if(o.dynamic){const floor=terrainHeight(o.p.x,o.p.z)+o.s.y;if(o.p.y<floor){o.p.y=floor;if(o.v.y<0)o.v.y=0;o.v.x*=.82;o.v.z*=.82}}
  }
- for(const o of objects)if(o.dynamic){const floor=terrainHeight(o.p.x,o.p.z)+o.s.y;if(o.p.y<floor){o.p.y=floor;if(o.v.y<0)o.v.y=0;o.v.x*=.82;o.v.z*=.82}}
 }
 
 // ---------- Renderer ----------
@@ -314,6 +327,9 @@ const light=new Float32Array([4,8,-4]);
 function draw(o){if(!o.visible)return;const p=o.parent?o.parent.p.add(o.p):o.p;modelMatrix(modelMat,p,o.r,o.s);normalMatrix(normalMat,modelMat);gl.uniformMatrix4fv(uModel,false,modelMat);gl.uniformMatrix3fv(uNormal,false,normalMat);gl.uniform3f(uColor,o.color[0],o.color[1],o.color[2]);gl.bindVertexArray(o.mesh.vao);gl.drawElements(gl.TRIANGLES,o.mesh.count,gl.UNSIGNED_INT,0);for(const c of o.children)draw(c)}
 let last=performance.now(),acc=0;const FIX=1/120;
 function render(now){
+ for(const o of objects)if(o.dynamic&&networkConnected&&o.netReady&&!o.held){
+   o.p.x+=(o.netTx-o.p.x)*.35;o.p.y+=(o.netTy-o.p.y)*.35;o.p.z+=(o.netTz-o.p.z)*.35;
+ }
  for(const [id,r] of remotePlayers){r.x+=(r.tx-r.x)*.22;r.y+=(r.ty-r.y)*.22;r.z+=(r.tz-r.z)*.22;r.yaw+=(r.tyaw-r.yaw)*.22;const body=remoteMeshes.get(id);if(body){body.p.set(r.x,r.y-.9,r.z);body.r.y=r.yaw}}
  networkTick(now);
  document.getElementById('status').textContent=networkConnected?(held?'Multiplayer connected • Holding rock':'Multiplayer connected'):'Multiplayer reconnecting…';
