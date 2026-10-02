@@ -202,7 +202,7 @@ for(const [i,[x,z,s]] of [[-3,-2,.55],[4,-3,.72],[-7,-6,.48],[7,2,.42],[2,-5,.35
 // ---------- Multiplayer client ----------
 // The WebGL renderer, procedural world, local physics and controls stay intact.
 // This layer synchronizes players and rock actions with the separate Render server.
-const MULTIPLAYER_URL='wss://omnibackend-sgb9.onrender.com/ws';
+const MULTIPLAYER_URL='wss://omnibackend-2.onrender.com/ws';
 let socket=null,networkId=null,networkConnected=false,networkRetry=0,lastNetworkSend=0;
 const remotePlayers=new Map(),remoteMeshes=new Map();
 function num(v,d=0){return Number.isFinite(Number(v))?Number(v):d}
